@@ -1,0 +1,426 @@
+{
+  "id": "entire-cli-architecture",
+  "title": "Entire CLI Architecture Tour",
+  "description": "Explore the architecture of the Entire CLI - a Go-based tool for managing AI coding session checkpoints, rewind points, and session metadata via git",
+  "version": "1.0.0",
+  "audience": "New Contributors & AI Assistants",
+  "prerequisites": [
+    "Basic Go knowledge",
+    "Familiarity with git internals (branches, commits, trees)",
+    "Understanding of the Cobra CLI framework"
+  ],
+  "steps": [
+    {
+      "id": "step-1-overview",
+      "title": "Project Overview",
+      "description": "Welcome to the Entire CLI codebase. This is a Go CLI built with Cobra and Charm's huh library. The project manages AI coding session checkpoints by storing session metadata alongside code changes in git. The main application code lives under cmd/, with configuration and CI at the root level.",
+      "estimatedTime": 60,
+      "focusDirectory": "",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "app-code",
+          "name": "Application Code",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "cmd", "type": "directory" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "config",
+          "name": "Configuration",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "go.mod", "type": "file" },
+            { "path": "mise.toml", "type": "file" },
+            { "path": ".golangci.yaml", "type": "file" },
+            { "path": ".goreleaser.yaml", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "fill"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "hover-directory",
+          "description": "Hover over cmd/ to see the application structure",
+          "target": "cmd"
+        }
+      ]
+    },
+    {
+      "id": "step-2-entry-point",
+      "title": "Entry Point & Command Routing",
+      "description": "The CLI starts at main.go which handles context, signals, and error output. The root command in root.go registers all subcommands using Cobra: enable, resume, rewind, reset, clean, status, explain, debug, and doctor. SilenceErrors is set globally so main.go controls error display, with SilentError for custom user-facing messages.",
+      "estimatedTime": 90,
+      "focusDirectory": "cmd/entire",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "entry",
+          "name": "Entry Point",
+          "color": "#ef4444",
+          "items": [
+            { "path": "cmd/entire/main.go", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "commands",
+          "name": "Command Definitions",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "cmd/entire/cli/root.go", "type": "file" },
+            { "path": "cmd/entire/cli/setup.go", "type": "file" },
+            { "path": "cmd/entire/cli/resume.go", "type": "file" },
+            { "path": "cmd/entire/cli/rewind.go", "type": "file" },
+            { "path": "cmd/entire/cli/reset.go", "type": "file" },
+            { "path": "cmd/entire/cli/status.go", "type": "file" },
+            { "path": "cmd/entire/cli/explain.go", "type": "file" },
+            { "path": "cmd/entire/cli/clean.go", "type": "file" },
+            { "path": "cmd/entire/cli/doctor.go", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "fill"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "Click main.go to see the entry point and error handling",
+          "target": "cmd/entire/main.go"
+        },
+        {
+          "type": "click-file",
+          "description": "Click root.go to see how commands are registered",
+          "target": "cmd/entire/cli/root.go"
+        }
+      ]
+    },
+    {
+      "id": "step-3-cli-core",
+      "title": "CLI Core Infrastructure",
+      "description": "The cli/ package contains shared infrastructure used by all commands. Key patterns: error handling (errors.go with SilentError), git operations (git_operations.go avoiding go-git bugs), hook management (hooks.go and hook_registry.go for git and agent hooks), state management (state.go for file path filtering), and settings loaded via the separate settings/ package to avoid import cycles.",
+      "estimatedTime": 120,
+      "focusDirectory": "cmd/entire/cli",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "core-infra",
+          "name": "Core Infrastructure",
+          "color": "#8b5cf6",
+          "items": [
+            { "path": "cmd/entire/cli/errors.go", "type": "file" },
+            { "path": "cmd/entire/cli/git_operations.go", "type": "file" },
+            { "path": "cmd/entire/cli/hooks.go", "type": "file" },
+            { "path": "cmd/entire/cli/hook_registry.go", "type": "file" },
+            { "path": "cmd/entire/cli/state.go", "type": "file" },
+            { "path": "cmd/entire/cli/config.go", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "agent-hooks",
+          "name": "Agent Hook Handlers",
+          "color": "#ec4899",
+          "items": [
+            { "path": "cmd/entire/cli/hooks_claudecode_handlers.go", "type": "file" },
+            { "path": "cmd/entire/cli/hooks_geminicli_handlers.go", "type": "file" },
+            { "path": "cmd/entire/cli/hooks_git_cmd.go", "type": "file" },
+            { "path": "cmd/entire/cli/hooks_cmd.go", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "fill"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "Click errors.go to see the SilentError pattern",
+          "target": "cmd/entire/cli/errors.go"
+        }
+      ]
+    },
+    {
+      "id": "step-4-strategy-pattern",
+      "title": "Strategy Pattern - The Core Architecture",
+      "description": "The strategy/ package is the heart of the CLI. It implements a Strategy interface (strategy.go) with a registry/factory pattern (registry.go). Two strategies exist: manual-commit (default, never modifies active branch, uses shadow branches) and auto-commit (creates clean commits with checkpoint trailers). Shared helpers in common.go handle metadata extraction and tree building. This is the most complex and important package in the codebase.",
+      "estimatedTime": 180,
+      "focusDirectory": "cmd/entire/cli/strategy",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "strategy-core",
+          "name": "Strategy Interface & Registry",
+          "color": "#ef4444",
+          "items": [
+            { "path": "cmd/entire/cli/strategy/strategy.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/registry.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/common.go", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "manual-commit",
+          "name": "Manual-Commit Strategy",
+          "color": "#10b981",
+          "items": [
+            { "path": "cmd/entire/cli/strategy/manual_commit.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/manual_commit_git.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/manual_commit_rewind.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/manual_commit_condensation.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/manual_commit_session.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/manual_commit_hooks.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/manual_commit_logs.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/manual_commit_reset.go", "type": "file" },
+            { "path": "cmd/entire/cli/strategy/manual_commit_types.go", "type": "file" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "auto-commit",
+          "name": "Auto-Commit Strategy",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "cmd/entire/cli/strategy/auto_commit.go", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "fill"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "Click strategy.go to see the Strategy interface definition",
+          "target": "cmd/entire/cli/strategy/strategy.go"
+        },
+        {
+          "type": "click-file",
+          "description": "Click manual_commit.go to see the default strategy implementation",
+          "target": "cmd/entire/cli/strategy/manual_commit.go"
+        }
+      ]
+    },
+    {
+      "id": "step-5-checkpoint-storage",
+      "title": "Checkpoint Storage Abstractions",
+      "description": "The checkpoint/ package provides two storage mechanisms: temporary checkpoints on shadow branches (temporary.go) for in-progress work, and committed checkpoints on the entire/checkpoints/v1 metadata branch (committed.go) for permanent records. The GitStore (store.go) wraps the git repository, and checkpoint.go defines the core data types. Checkpoint IDs (12-hex-char) link user commits to their metadata via sharded directory paths.",
+      "estimatedTime": 120,
+      "focusDirectory": "cmd/entire/cli/checkpoint",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "checkpoint-core",
+          "name": "Core Types & Store",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "cmd/entire/cli/checkpoint/checkpoint.go", "type": "file" },
+            { "path": "cmd/entire/cli/checkpoint/store.go", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "storage-backends",
+          "name": "Storage Backends",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "cmd/entire/cli/checkpoint/temporary.go", "type": "file" },
+            { "path": "cmd/entire/cli/checkpoint/committed.go", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "Click checkpoint.go to see the core data types",
+          "target": "cmd/entire/cli/checkpoint/checkpoint.go"
+        }
+      ]
+    },
+    {
+      "id": "step-6-session-state-machine",
+      "title": "Session Lifecycle & State Machine",
+      "description": "The session/ package manages session lifecycle through a state machine (phase.go). Sessions move through phases: ACTIVE, ACTIVE_COMMITTED, IDLE, and ENDED, driven by events like TurnStart, TurnEnd, GitCommit, SessionStart, and SessionStop. The state machine emits actions (e.g., ActionCondense, ActionMigrateShadowBranch) that hook handlers dispatch. Session state is persisted to .git/entire-sessions/ via state.go.",
+      "estimatedTime": 120,
+      "focusDirectory": "cmd/entire/cli/session",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "state-machine",
+          "name": "Phase State Machine",
+          "color": "#ef4444",
+          "items": [
+            { "path": "cmd/entire/cli/session/phase.go", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "session-state",
+          "name": "Session State Persistence",
+          "color": "#10b981",
+          "items": [
+            { "path": "cmd/entire/cli/session/state.go", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "fill"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "Click phase.go to see the state machine transitions",
+          "target": "cmd/entire/cli/session/phase.go"
+        }
+      ]
+    },
+    {
+      "id": "step-7-agent-integrations",
+      "title": "Agent Integrations",
+      "description": "The agent/ package provides a framework for integrating with AI coding agents. Each agent (Claude Code in claudecode/, Gemini CLI in geminicli/) implements hooks for session lifecycle events, transcript parsing, and type definitions. The agent registry (registry.go) discovers agents, and chunking.go handles input splitting for large transcripts. The agent.go file defines the base interface that all agents implement.",
+      "estimatedTime": 120,
+      "focusDirectory": "cmd/entire/cli/agent",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "agent-framework",
+          "name": "Agent Framework",
+          "color": "#8b5cf6",
+          "items": [
+            { "path": "cmd/entire/cli/agent/agent.go", "type": "file" },
+            { "path": "cmd/entire/cli/agent/registry.go", "type": "file" },
+            { "path": "cmd/entire/cli/agent/chunking.go", "type": "file" },
+            { "path": "cmd/entire/cli/agent/types.go", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "fill"
+        },
+        {
+          "id": "claude-integration",
+          "name": "Claude Code Agent",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "cmd/entire/cli/agent/claudecode", "type": "directory" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "gemini-integration",
+          "name": "Gemini CLI Agent",
+          "color": "#10b981",
+          "items": [
+            { "path": "cmd/entire/cli/agent/geminicli", "type": "directory" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "border"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "click-file",
+          "description": "Click agent.go to see the agent interface",
+          "target": "cmd/entire/cli/agent/agent.go"
+        },
+        {
+          "type": "hover-directory",
+          "description": "Hover over claudecode/ to see the Claude Code integration",
+          "target": "cmd/entire/cli/agent/claudecode"
+        }
+      ]
+    },
+    {
+      "id": "step-8-supporting-packages",
+      "title": "Supporting Packages",
+      "description": "Several smaller packages provide shared utilities: paths/ for repository root and worktree detection, logging/ for structured debug logging to .entire/logs/, settings/ for loading .entire/settings.json (exists as a separate package to avoid import cycles), transcript/ for parsing session transcripts, trailers/ for git commit trailer handling, and validation/ for input validation. These keep the core packages focused and testable.",
+      "estimatedTime": 90,
+      "focusDirectory": "cmd/entire/cli",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "utility-packages",
+          "name": "Utility Packages",
+          "color": "#06b6d4",
+          "items": [
+            { "path": "cmd/entire/cli/paths", "type": "directory" },
+            { "path": "cmd/entire/cli/logging", "type": "directory" },
+            { "path": "cmd/entire/cli/settings", "type": "directory" },
+            { "path": "cmd/entire/cli/transcript", "type": "directory" },
+            { "path": "cmd/entire/cli/trailers", "type": "directory" },
+            { "path": "cmd/entire/cli/validation", "type": "directory" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "border"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "hover-directory",
+          "description": "Hover over paths/ to see repository path utilities",
+          "target": "cmd/entire/cli/paths"
+        }
+      ]
+    },
+    {
+      "id": "step-9-testing",
+      "title": "Testing Strategy",
+      "description": "The codebase has comprehensive testing at multiple levels. Unit tests (*_test.go) live alongside source files throughout the project. Integration tests in integration_test/ use the TestEnv framework (testenv.go) to test full workflows across both strategies, including multi-session scenarios, worktrees, mid-session commits, rebase handling, and phase transitions. Tests use t.Parallel() and the integration build tag. Run with 'mise run test' (unit) or 'mise run test:integration' (integration).",
+      "estimatedTime": 90,
+      "focusDirectory": "cmd/entire/cli/integration_test",
+      "colorMode": "fileTypes",
+      "highlightLayers": [
+        {
+          "id": "test-framework",
+          "name": "Test Framework",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "cmd/entire/cli/integration_test", "type": "directory" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "border"
+        }
+      ],
+      "interactiveActions": [
+        {
+          "type": "hover-directory",
+          "description": "Explore the integration test suite",
+          "target": "cmd/entire/cli/integration_test"
+        }
+      ]
+    },
+    {
+      "id": "step-10-full-picture",
+      "title": "The Full Picture",
+      "description": "You've now seen the complete Entire CLI architecture: commands route through Cobra (root.go), strategies manage checkpoint storage via shadow branches or auto-commits, the session state machine coordinates lifecycle events, agent integrations handle Claude Code and Gemini CLI hooks, and the checkpoint package abstracts git-based metadata storage. Configuration lives at the root (mise.toml for tasks, .golangci.yaml for linting, .goreleaser.yaml for releases). Before committing, always run: mise run fmt && mise run lint && mise run test:ci.",
+      "estimatedTime": 60,
+      "focusDirectory": "",
+      "colorMode": "fileTypes",
+      "resources": [
+        {
+          "title": "CLAUDE.md - Full Development Guide",
+          "url": "CLAUDE.md",
+          "type": "documentation"
+        },
+        {
+          "title": "Architecture Documentation",
+          "url": "docs/architecture/sessions-and-checkpoints.md",
+          "type": "documentation"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "author": "Claude",
+    "createdAt": "2026-02-11",
+    "tags": ["architecture", "onboarding", "go", "cli"]
+  }
+}
